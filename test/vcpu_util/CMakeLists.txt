@@ -1,0 +1,4 @@
+add_executable(vcpu_util_test vcpu_util_test.cpp)
+target_link_libraries(vcpu_util_test gtest_main virtlib)
+include(GoogleTest)
+gtest_discover_tests(vcpu_util_test)

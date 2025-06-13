@@ -2,10 +2,9 @@
 #include <iostream>
 #include <linux/kvm.h>
 #include <sys/ioctl.h>
+#include <expected>
 int main() {
-    auto kvm_fd = open("/dev/kvm", O_RDWR | O_CLOEXEC);
-    auto vm_fd = ioctl(kvm_fd,KVM_CREATE_VM);
-
+    std::expected<int,int> test = std::unexpected(1);
     std::cout << "Hello, World!" << std::endl;
     return 0;
 }

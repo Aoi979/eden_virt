@@ -6,6 +6,7 @@ module;
 #include <system_error>
 #include <unistd.h>
 #include <utility>
+#include <expected>
 export module util;
 
 export namespace eden_virt::util {
@@ -42,11 +43,14 @@ export namespace eden_virt::util {
     };
 
 
+    template<typename T>
+    using eden_result = std::expected<T,std::error_code>;
+
     class file_descriptor {
     public:
         static constexpr int INVALID = -1;
 
-        file_descriptor() noexcept = default;
+        file_descriptor() noexcept = delete;
 
         explicit file_descriptor(int fd) noexcept : fd_(fd) {}
 

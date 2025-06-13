@@ -1,0 +1,4 @@
+add_executable(generic_util_test generic_util_test.cpp)
+target_link_libraries(generic_util_test gtest_main virtlib)
+include(GoogleTest)
+gtest_discover_tests(generic_util_test)

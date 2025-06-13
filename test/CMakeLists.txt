@@ -1,10 +1,11 @@
 include(FetchContent)
 FetchContent_Declare(
         googletest
-        URL https://github.com/google/googletest/archive/refs/heads/main.zip
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.16.0
 )
 FetchContent_MakeAvailable(googletest)
 
 enable_testing()
-add_subdirectory(util)
-
+add_subdirectory(generic_util)
+add_subdirectory(vcpu_util)
