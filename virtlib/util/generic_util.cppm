@@ -7,9 +7,71 @@ module;
 #include <unistd.h>
 #include <utility>
 #include <expected>
+#include <iostream>
+#include <sstream>
+#include <string>
 export module util;
 
 export namespace eden_virt::util {
+    enum class log_level {
+        trace, debug, info, warn, error, fatal
+    };
+
+    inline const char* level_to_string(log_level level) {
+        switch (level) {
+            case log_level::trace: return "TRACE";
+            case log_level::debug: return "DEBUG";
+            case log_level::info:  return "INFO";
+            case log_level::warn:  return "WARN";
+            case log_level::error: return "ERROR";
+            case log_level::fatal: return "FATAL";
+        }
+        return "UNKNOWN";
+    }
+
+    inline const char* level_to_color(log_level level) {
+        switch (level) {
+            case log_level::trace: return "\033[37m";
+            case log_level::debug: return "\033[36m";
+            case log_level::info:  return "\033[32m";
+            case log_level::warn:  return "\033[33m";
+            case log_level::error: return "\033[31m";
+            case log_level::fatal: return "\033[1;31m";
+        }
+        return "\033[0m";
+    }
+
+    struct log_stream {
+        std::ostringstream oss;
+        log_level level;
+        const char* file;
+        int line;
+        const char* func;
+
+        log_stream(log_level lvl, const char* f, int l, const char* fn)
+            : level(lvl), file(f), line(l), func(fn) {}
+
+        template <typename T>
+        log_stream& operator<<(const T& val) {
+            oss << val;
+            return *this;
+        }
+
+        ~log_stream() {
+            std::time_t now = std::time(nullptr);
+            char time_buf[32];
+            std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S", std::localtime(&now));
+            std::ostream& out = (level >= log_level::error) ? std::cerr : std::cout;
+            out << level_to_color(level)
+                << "[" << time_buf << "] "
+                << level_to_string(level) << " "
+                << file << ":" << line << " " << func << "(): "
+                << oss.str()
+                << "\033[0m" << std::endl;
+        }
+    };
+
+
 
     enum class hypervisor_type {
         kvm,
@@ -29,15 +91,17 @@ export namespace eden_virt::util {
         T data;
         std::mutex mtx;
 
-        mutex_data() = delete;
+        mutex_data() = default;
 
         template<typename U>
-            requires std::is_constructible_v<T, std::initializer_list<U>>
-        mutex_data(std::initializer_list<U> il) : data(il) {}
+            requires std::is_constructible_v<T, std::initializer_list<U> >
+        mutex_data(std::initializer_list<U> il) : data(il) {
+        }
 
         template<typename... Args>
             requires std::is_constructible_v<T, Args...>
-        explicit mutex_data(Args &&... args) : data(std::forward<Args>(args)...) {}
+        explicit mutex_data(Args &&... args) : data(std::forward<Args>(args)...) {
+        }
 
         mutex_data(const mutex_data &d) = delete;
 
@@ -50,7 +114,7 @@ export namespace eden_virt::util {
 
 
     template<typename T>
-    using eden_result = std::expected<T,std::error_code>;
+    using eden_result = std::expected<T, std::error_code>;
 
     class file_descriptor {
     public:
@@ -58,18 +122,20 @@ export namespace eden_virt::util {
 
         file_descriptor() noexcept = delete;
 
-        explicit file_descriptor(int fd) noexcept : fd_(fd) {}
+        explicit file_descriptor(int fd) noexcept : fd_(fd) {
+        }
 
-        file_descriptor(const file_descriptor&) = delete;
+        file_descriptor(const file_descriptor &) = delete;
 
-        file_descriptor(file_descriptor&& other) noexcept
-            : fd_(std::exchange(other.fd_, INVALID)) {}
+        file_descriptor(file_descriptor &&other) noexcept
+            : fd_(std::exchange(other.fd_, INVALID)) {
+        }
 
         ~file_descriptor() { reset(); }
 
-        file_descriptor& operator=(const file_descriptor&) = delete;
+        file_descriptor &operator=(const file_descriptor &) = delete;
 
-        file_descriptor& operator=(file_descriptor&& other) noexcept {
+        file_descriptor &operator=(file_descriptor &&other) noexcept {
             reset();
             fd_ = std::exchange(other.fd_, INVALID);
             return *this;

@@ -9,10 +9,11 @@ module;
 #include <system_error>
 #include <variant>
 #include <asm/kvm.h>
-#include <bits/fcntl-linux.h>
+#include <iostream>
 #include <linux/kvm.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include "macro.h"
 #define REJECT_RVALUE
 export module kvm_util;
 import util;
@@ -67,11 +68,13 @@ export namespace eden_virt::util::kvm {
         kvm_run_w(kvm_run_w &&other) noexcept
             : kvm_run_ptr_(other.kvm_run_ptr_)
               , mmap_size_(other.mmap_size_) {
+            LOG(trace) << "kvm_run_w move constructor";
             other.kvm_run_ptr_ = MAP_FAILED;
             other.mmap_size_ = 0;
         }
 
         kvm_run_w &operator=(kvm_run_w &&other) noexcept {
+            LOG(trace) << "kvm_run_w move assignment";
             if (this != &other) {
                 release();
                 kvm_run_ptr_ = other.kvm_run_ptr_;
@@ -85,7 +88,9 @@ export namespace eden_virt::util::kvm {
 
         // vcpu_fd, size
         static kvm_run_w mmap_from_fd(int fd, size_t size) {
+            LOG(trace)<<"kvm_run_w mmap_from_fd contribute";
             if (fd < 0) {
+                LOG(error) << "Invalid file descriptor form: {mmap_from_fd}";
                 throw std::invalid_argument("Invalid file descriptor form: {mmap_from_fd}");
             }
 
@@ -108,6 +113,7 @@ export namespace eden_virt::util::kvm {
             return {addr, size};
         }
 
+        // TODO need optimization
         [[nodiscard]] kvm_run &as_mut_ref() const {
             if (!valid()) {
                 throw std::runtime_error("KvmRunWrapper is invalid");
@@ -145,6 +151,7 @@ export namespace eden_virt::util::kvm {
 
 
         ~kvm_run_w() {
+            LOG(trace) << "kvm_run_w::~kvm_run_w()";
             release();
         }
 
@@ -195,9 +202,11 @@ export namespace eden_virt::util::kvm {
 
 
         vcpu_exit() : reason_(reason::unsupported) {
+            LOG(trace) << "vcpu_exit default contribute";
         }
 
         explicit vcpu_exit(const kvm_run_w &run) {
+            LOG(trace)<< "vcpu_exit explicit contribute: from kvm_run_w";
             switch (const auto run_ptr = run.as_ptr(); run_ptr->exit_reason) {
                 case KVM_EXIT_IO:
                     if (run_ptr->io.direction == KVM_EXIT_IO_OUT) {
@@ -372,18 +381,22 @@ export namespace eden_virt::util::kvm {
         }
 
         [[nodiscard]] const io_out *get_as_io_out() const noexcept {
+            LOG(trace) << "get_as_io_out";
             return std::get_if<io_out>(&variant_);
         }
 
         io_in *get_as_io_in() noexcept {
+            LOG(trace) << "get_as_io_in";
             return std::get_if<io_in>(&variant_);
         }
 
         [[nodiscard]] const mmio_read *get_as_mmio_read() const noexcept {
+            LOG(trace) << "get_as_mmio_read";
             return std::get_if<mmio_read>(&variant_);
         }
 
         mmio_write *get_as_mmio_write() noexcept {
+            LOG(trace) << "get_as_mmio_write";
             return std::get_if<mmio_write>(&variant_);
         }
 
@@ -419,6 +432,7 @@ export namespace eden_virt::util::kvm {
         static kvm_regs get_regs(int vcpu_fd) {
             kvm_regs regs = {};
             if (ioctl(vcpu_fd, KVM_GET_REGS, &regs) == -1) {
+                LOG(error) << "KVM_GET_REGS failed: " << strerror(errno);
                 throw std::system_error(
                     errno,
                     std::generic_category(),
@@ -430,6 +444,7 @@ export namespace eden_virt::util::kvm {
 
         static void set_regs(int vcpu_fd, const kvm_regs &regs) {
             if (ioctl(vcpu_fd, KVM_SET_REGS, &regs) == -1) {
+                LOG(error) << "KVM_SET_REGS failed";
                 throw std::system_error(
                     errno,
                     std::generic_category(),
@@ -441,6 +456,7 @@ export namespace eden_virt::util::kvm {
         static kvm_sregs get_sregs(int vcpu_fd) {
             kvm_sregs sregs = {};
             if (ioctl(vcpu_fd, KVM_GET_SREGS, &sregs) == -1) {
+                LOG(error) << "KVM_GET_SREGS failed";
                 throw std::system_error(
                     errno,
                     std::generic_category(),
@@ -452,6 +468,7 @@ export namespace eden_virt::util::kvm {
 
         static void set_sregs(int vcpu_fd, const kvm_sregs &sregs) {
             if (ioctl(vcpu_fd, KVM_SET_SREGS, &sregs) == -1) {
+                LOG(error) << "KVM_SET_SREGS failed";
                 throw std::system_error(
                     errno,
                     std::generic_category(),
@@ -463,6 +480,7 @@ export namespace eden_virt::util::kvm {
         static kvm_debugregs get_debug_regs(int vcpu_fd) {
             kvm_debugregs dbgregs = {};
             if (ioctl(vcpu_fd, KVM_GET_DEBUGREGS, &dbgregs) == -1) {
+                LOG(error) << "KVM_GET_DEBUGREGS failed";
                 throw std::system_error(
                     errno,
                     std::generic_category(),
@@ -474,6 +492,7 @@ export namespace eden_virt::util::kvm {
 
         static void set_debug_regs(int vcpu_fd, const kvm_debugregs &dbgregs) {
             if (ioctl(vcpu_fd, KVM_SET_DEBUGREGS, &dbgregs) == -1) {
+                LOG(error) << "KVM_SET_DEBUGREGS failed";
                 throw std::system_error(
                     errno,
                     std::generic_category(),
@@ -492,15 +511,18 @@ export namespace eden_virt::util::kvm {
 
         vcpu_fd(file_descriptor &&vcpu_fd, kvm_run_w &&kvm_run): vcpu(std::move(vcpu_fd)),
                                                                  kvm_run_ptr(std::move(kvm_run)) {
+            LOG(trace) << "vcpu_fd contribute: from file_descriptor and kvm_run_w";
         }
 
         vcpu_fd(vcpu_fd &&other) noexcept : vcpu(std::move(other.vcpu)),
                                             kvm_run_ptr(std::move(other.kvm_run_ptr)) {
+            LOG(trace) << "vcpu_fd move contribute: from vcpu_fd&&";
             other.vcpu = file_descriptor{file_descriptor::INVALID};
             other.kvm_run_ptr = kvm_run_w::mmap_from_fd(file_descriptor::INVALID, -1);
         }
 
         auto operator=(vcpu_fd &&other) noexcept -> vcpu_fd & {
+            LOG(trace) << "vcpu_fd move assignment: from vcpu_fd&&";
             vcpu = std::move(other.vcpu);
             kvm_run_ptr = std::move(other.kvm_run_ptr);
             other.vcpu = file_descriptor{file_descriptor::INVALID};
@@ -510,6 +532,7 @@ export namespace eden_virt::util::kvm {
 
 
         [[nodiscard]] auto run() const -> vcpu_exit {
+            LOG(trace) << "Running vcpu";
             if (ioctl(vcpu.get(), KVM_RUN, 0) == -1) {
                 if (errno == EINTR) {
                     return {};
@@ -540,10 +563,33 @@ export namespace eden_virt::util::kvm {
         file_descriptor vm;
         size_t run_size;
 
+        [[nodiscard]] auto set_user_memory_region(kvm_userspace_memory_region& region) const -> eden_result<void> {
+            if (const auto ret = ioctl(vm.get(),KVM_SET_USER_MEMORY_REGION, &region); ret != 0) return std::unexpected{
+                std::error_code{INT8_MAX, std::generic_category()}
+            };
+            return {};
+        }
+
+        [[nodiscard]]auto set_tss_address(size_t offset) const ->eden_result<void>  {
+            if (const auto ret = ioctl(vm.get(),KVM_SET_TSS_ADDR, offset);ret != 0) return std::unexpected{
+                std::error_code{INT8_MAX, std::generic_category()}
+            };
+            return {};
+        }
+
+        [[nodiscard]]auto set_identity_map_address(u_int64_t address) const->eden_result<void> {
+            if (const auto ret = ioctl(vm.get(),KVM_SET_IDENTITY_MAP_ADDR, &address);ret != 0) return std::unexpected{
+                std::error_code{INT8_MAX, std::generic_category()}
+            };
+            return {};
+        }
+
+
+
         [[nodiscard]] auto create_vcpu(uint8_t id) const -> eden_result<vcpu_fd> {
-            if (const auto vcpu_fd_ = ioctl(vm.get(),KVM_CREATE_VCPU, id); vcpu_fd_<0) {
+            if (const auto vcpu_fd_ = ioctl(vm.get(),KVM_CREATE_VCPU, id); vcpu_fd_ < 0) {
                 return std::unexpected{std::error_code{vcpu_fd_, std::generic_category()}};
-            }else {
+            } else {
                 auto vcpu = file_descriptor{vcpu_fd_};
                 auto kvm_run_ptr = kvm_run_w::mmap_from_fd(vcpu.get(), run_size);
                 return vcpu_fd{std::move(vcpu), std::move(kvm_run_ptr)};
@@ -556,6 +602,7 @@ export namespace eden_virt::util::kvm {
 
         explicit kvm_w() {
             kvm_fd = file_descriptor{open("/dev/kvm", O_RDWR | O_CLOEXEC)};
+            std::cout << "KVM opened" << std::endl;
             if (kvm_fd.get() == -1) {
                 throw std::system_error(
                     errno,
@@ -571,7 +618,7 @@ export namespace eden_virt::util::kvm {
 
         // cannot accept rvalue, although it's safe!
         [[nodiscard]] REJECT_RVALUE auto get_vcpu_mmap_size(this auto &self) -> eden_result<size_t> {
-            auto res = ioctl(self.kvm_fd.get(), KVM_GET_VCPU_MMAP_SIZE);
+            auto res = ioctl(self.kvm_fd.get(), KVM_GET_VCPU_MMAP_SIZE,0);
             if (res > 0) {
                 return res;
             }
@@ -579,16 +626,21 @@ export namespace eden_virt::util::kvm {
         }
 
         [[nodiscard]] REJECT_RVALUE auto create_vm_with_type(this auto &self, uint32_t type) -> eden_result<vm_fd> {
+
             auto ret = ioctl(self.kvm_fd.get(), KVM_CREATE_VM, type);
+
             if (ret >= 0) {
                 auto vm_file = file_descriptor{ret};
-                auto run_mmap_size = self.get_vcpu_mmap_size();
-                return {vm_file, run_mmap_size};
+                if (auto run_mmap_size = self.get_vcpu_mmap_size();run_mmap_size) {
+                    return vm_fd{(std::move(vm_file)), run_mmap_size.value()};
+                }
+                return std::unexpected{std::error_code{ret, std::generic_category()}};
             }
             return std::unexpected{std::error_code{ret, std::generic_category()}};
         }
 
         [[nodiscard]] REJECT_RVALUE auto create_vm(this auto &self) -> eden_result<vm_fd> {
+            LOG(trace) << "Creating VM";
             return self.create_vm_with_type(0);
         }
 

@@ -24,7 +24,6 @@ export namespace eden_virt::cpu {
         virtual void init_pmu() = 0;
 
         virtual void vcpu_init() = 0;
-
     };
 
 
@@ -39,7 +38,7 @@ export namespace eden_virt::cpu {
 
     struct eden_cpu {
         uint8_t id;
-        std::shared_ptr<mutex_data<arch_cpu>> arch_cpu;
+        std::shared_ptr<mutex_data<arch_cpu>> arch_cpu_;
         std::shared_ptr<mutex_data<tuple(cpu_lifecycle_state,std::condition_variable)>> state;
     private:
 

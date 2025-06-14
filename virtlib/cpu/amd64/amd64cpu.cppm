@@ -45,26 +45,24 @@ export namespace eden_virt::cpu::amd64 {
         std::size_t msr_len{};
         std::array<kvm_msr_entry, 256> msr_list{};
         kvm_vcpu_events vcpu_events{};
-        kvm_xsave xsave{};
+
         kvm_xcrs xcrs{};
         kvm_debugregs debugregs{};
+        kvm_xsave xsave{};
 
         explicit amd64_cpu_state(uint8_t vcpu_id, uint8_t max_vcpus): apic_id(vcpu_id), max_vcpus(max_vcpus) {
             if (vcpu_id == 0) {
                 mp_state = {.mp_state = KVM_MP_STATE_RUNNABLE};
-            }else {
+            } else {
                 mp_state = {.mp_state = KVM_MP_STATE_UNINITIALIZED};
             }
         }
 
         // set topology after default construction
-        void set_topo(const amd64_cpu_topology& topo) {
+        void set_topo(const amd64_cpu_topology &topo) {
             nr_cores = topo.cores;
             nr_dies = topo.dies;
             nr_threads = topo.threads;
         }
-
     };
-
-
 }
