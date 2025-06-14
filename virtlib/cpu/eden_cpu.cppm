@@ -13,9 +13,22 @@ import util;
 export import :amd64cpu;
 using arch_cpu = eden_virt::cpu::amd64::amd64_cpu_state;
 #endif
-
-using eden_virt::util::mutex_data;
+using namespace eden_virt::util;
 export namespace eden_virt::cpu {
+
+    struct cpu_hypervisor_ops {
+        virtual ~cpu_hypervisor_ops() = default;
+
+        virtual auto get_hypervisor_type() -> hypervisor_type = 0;
+
+        virtual void init_pmu() = 0;
+
+        virtual void vcpu_init() = 0;
+
+    };
+
+
+
     enum class cpu_lifecycle_state:uint8_t {
         CREATED,
         RUNNING,

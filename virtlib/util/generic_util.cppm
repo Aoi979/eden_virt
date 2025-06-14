@@ -10,6 +10,12 @@ module;
 export module util;
 
 export namespace eden_virt::util {
+
+    enum class hypervisor_type {
+        kvm,
+        test,
+    };
+
     template<typename First, typename... Rest>
     struct first_type {
         using type = First;

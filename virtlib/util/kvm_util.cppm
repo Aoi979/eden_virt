@@ -535,6 +535,22 @@ export namespace eden_virt::util::kvm {
         }
     };
 
+    // TODO: complete this struct
+    struct vm_fd {
+        file_descriptor vm;
+        size_t run_size;
+
+        [[nodiscard]] auto create_vcpu(uint8_t id) const -> eden_result<vcpu_fd> {
+            if (const auto vcpu_fd_ = ioctl(vm.get(),KVM_CREATE_VCPU, id); vcpu_fd_<0) {
+                return std::unexpected{std::error_code{vcpu_fd_, std::generic_category()}};
+            }else {
+                auto vcpu = file_descriptor{vcpu_fd_};
+                auto kvm_run_ptr = kvm_run_w::mmap_from_fd(vcpu.get(), run_size);
+                return vcpu_fd{std::move(vcpu), std::move(kvm_run_ptr)};
+            }
+        }
+    };
+
     struct kvm_w {
         file_descriptor kvm_fd{file_descriptor::INVALID};
 
@@ -553,13 +569,27 @@ export namespace eden_virt::util::kvm {
             return ioctl(kvm_fd.get(), KVM_GET_API_VERSION);
         }
 
-        // cannot accept rvalue!
+        // cannot accept rvalue, although it's safe!
         [[nodiscard]] REJECT_RVALUE auto get_vcpu_mmap_size(this auto &self) -> eden_result<size_t> {
             auto res = ioctl(self.kvm_fd.get(), KVM_GET_VCPU_MMAP_SIZE);
             if (res > 0) {
                 return res;
             }
-            return std::unexpected<std::error_code>{res, std::generic_category()};
+            return std::unexpected{std::error_code{res, std::generic_category()}};
+        }
+
+        [[nodiscard]] REJECT_RVALUE auto create_vm_with_type(this auto &self, uint32_t type) -> eden_result<vm_fd> {
+            auto ret = ioctl(self.kvm_fd.get(), KVM_CREATE_VM, type);
+            if (ret >= 0) {
+                auto vm_file = file_descriptor{ret};
+                auto run_mmap_size = self.get_vcpu_mmap_size();
+                return {vm_file, run_mmap_size};
+            }
+            return std::unexpected{std::error_code{ret, std::generic_category()}};
+        }
+
+        [[nodiscard]] REJECT_RVALUE auto create_vm(this auto &self) -> eden_result<vm_fd> {
+            return self.create_vm_with_type(0);
         }
 
         ~kvm_w() = default;
