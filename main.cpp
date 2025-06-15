@@ -10,7 +10,6 @@ import util;
 using namespace eden_virt::hypervisor::kvm;
 using namespace eden_virt::util;
 
-
 int main() {
     auto eden_machine = eden_virt::machine::eden_machine<kvm_hypervisor>();
     void *guest_mem = mmap(NULL, GUEST_CODE_SIZE, PROT_READ | PROT_WRITE,
@@ -68,4 +67,3 @@ int main() {
     }
     return 0;
 }
-

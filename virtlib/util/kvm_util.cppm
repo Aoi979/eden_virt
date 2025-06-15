@@ -608,10 +608,12 @@ export namespace eden_virt::util::kvm {
 
 
         [[nodiscard]] auto create_vcpu(uint8_t id) const -> eden_result<vcpu_fd> {
+            LOG(trace) << "Creating vcpu " << id;
             if (const auto vcpu_fd_ = ioctl(vm,KVM_CREATE_VCPU, id); vcpu_fd_ < 0) {
                 return std::unexpected{std::error_code{vcpu_fd_, std::generic_category()}};
             } else {
                 auto vcpu = file_descriptor{vcpu_fd_};
+                LOG(info) << "OPENED VCPU "<< vcpu;
                 auto kvm_run_ptr = kvm_run_w::mmap_from_fd(vcpu, run_size);
                 return vcpu_fd{std::move(vcpu), std::move(kvm_run_ptr)};
             }
@@ -622,8 +624,9 @@ export namespace eden_virt::util::kvm {
         file_descriptor kvm_fd{file_descriptor::INVALID};
 
         explicit kvm_w() {
+            LOG(trace) << "Opening /dev/kvm";
             kvm_fd = file_descriptor{open("/dev/kvm", O_RDWR | O_CLOEXEC)};
-            std::cout << "KVM opened" << std::endl;
+            LOG(info) << "OPENED KVM "<< kvm_fd;
             if (kvm_fd == -1) {
                 throw std::system_error(
                     errno,

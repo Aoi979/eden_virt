@@ -122,7 +122,7 @@ export namespace eden_virt::util {
 
         file_descriptor() noexcept = delete;
 
-        explicit file_descriptor(int fd) noexcept : fd_(fd) {}
+        file_descriptor(int fd) noexcept : fd_(fd) {}
 
         file_descriptor(const file_descriptor &) = delete;
 
