@@ -4,9 +4,11 @@
 
 #ifndef MACRO_H
 #define MACRO_H
-
-#define DYNAMIC
+#define REJECT_RVALUE
 #define IMPL
+#define HYPERVISOR_OPS_BEGIN
+#define HYPERVISOR_OPS_END
+#define DYNAMIC
 template <typename T>
 constexpr const char* get_type_name() {
 #if defined(__clang__)
@@ -18,6 +20,5 @@ constexpr const char* get_type_name() {
 #endif
 }
 
-//#define LOG(level) log_print(log_level::level, __FILE__, __LINE__, __func__)
 #define LOG(level) log_stream(log_level::level, __FILE__, __LINE__, __func__)
 #endif //MACRO_H

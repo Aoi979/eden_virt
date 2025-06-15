@@ -12,7 +12,7 @@ import eden_hypervisor;
 using namespace eden_virt::cpu;
 using namespace eden_virt::hypervisor;
 using namespace eden_virt::util;
-
+using arch_cpu = eden_virt::cpu::amd64::amd64_cpu_state;
 
 #if defined(__amd64__)
 using cpu_topology = amd64::amd64_cpu_topology;
@@ -31,6 +31,10 @@ export namespace eden_virt::machine {
             LOG(info) << get_type_name<hypervisor>();
             LOG(trace) << "eden_machine default contribute";
             hyper = std::make_shared<mutex_data<hypervisor>>();
+            auto [lock,hypervisor_] = hyper->lock();
+            if (auto cpu = hypervisor_.create_hypervisor_cpu(0);cpu) {
+                cpus.push_back(eden_cpu{0,std::move(cpu.value())});
+            }
         }
     };
 }

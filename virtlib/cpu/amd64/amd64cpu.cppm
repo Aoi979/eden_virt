@@ -8,7 +8,8 @@ module;
 #include <asm/kvm.h>
 #include <linux/kvm.h>
 export module eden_cpu:amd64cpu;
-
+import kvm_util;
+using namespace eden_virt::util::kvm;
 export namespace eden_virt::cpu::amd64 {
     struct amd64_cpu_topology {
         uint8_t threads;
@@ -48,7 +49,7 @@ export namespace eden_virt::cpu::amd64 {
 
         kvm_xcrs xcrs{};
         kvm_debugregs debugregs{};
-        kvm_xsave xsave{};
+        kvm_xsave_e xsave{};
 
         explicit amd64_cpu_state(uint8_t vcpu_id, uint8_t max_vcpus): apic_id(vcpu_id), max_vcpus(max_vcpus) {
             if (vcpu_id == 0) {
