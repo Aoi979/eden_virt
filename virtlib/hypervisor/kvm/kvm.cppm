@@ -44,14 +44,14 @@ export namespace eden_virt::hypervisor::kvm {
 
     struct kvm_hypervisor {
         kvm_w kvm{};
-        std::shared_ptr<vm_fd> vm_fd_{nullptr};
-        std::shared_ptr<mutex_data<kvm_slots> > mem_slot{nullptr};
+        std::unique_ptr<vm_fd> vm_fd_{nullptr};
+        std::unique_ptr<mutex_data<kvm_slots> > mem_slot{nullptr};
 
         explicit kvm_hypervisor() {
             LOG(trace) << "kvm_hypervisor default contribute";
             if (auto result = kvm.create_vm(); result) {
-                vm_fd_ = std::make_shared<vm_fd>(std::move(result.value()));
-                mem_slot = std::make_shared<mutex_data<kvm_slots> >(kvm_slots{});
+                vm_fd_ = std::make_unique<vm_fd>(std::move(result.value()));
+                mem_slot = std::make_unique<mutex_data<kvm_slots> >(kvm_slots{});
             }
         }
 

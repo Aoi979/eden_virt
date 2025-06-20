@@ -1,11 +1,13 @@
 //
 // Created by aoikajitsu on 25-6-13.
 //
+#include <fcntl.h>
 #include <list>
+#include <thread>
 #include <gtest/gtest.h>
 import util;
 using namespace eden_virt::util;
-
+// This code was generated with the assistance of AI.
 
 TEST(MutexDataTest, DirectValueConstruction) {
     mutex_data<int> md(42);
@@ -98,6 +100,108 @@ TEST(MutexDataTest, ThreadSafety) {
     EXPECT_EQ(final_count, kNumThreads * kIncrementsPerThread);
 }
 
+TEST(SharedMutexDataTest, Construction) {
+    shared_mutex_data<std::vector<int>> svec{1, 2, 3};
+    auto [lock, data] = svec.shared_lock();
+    EXPECT_EQ(data.size(), 3);
+    EXPECT_EQ(data[0], 1);
+    EXPECT_EQ(data[1], 2);
+    EXPECT_EQ(data[2], 3);
+}
+
+TEST(SharedMutexDataTest, UniqueLockWrite) {
+    shared_mutex_data<int> sdata{10};
+    {
+        auto [lock, data] = sdata.unique_lock();
+        data += 5;
+    }
+    auto [rlock, data] = sdata.shared_lock();
+    EXPECT_EQ(data, 15);
+}
+
+TEST(SharedMutexDataTest, MultithreadedReadWrite) {
+    shared_mutex_data<int> sdata{0};
+
+    auto reader = [&]() {
+        for (int i = 0; i < 100; ++i) {
+            auto [lock, data] = sdata.shared_lock();
+            EXPECT_GE(data, 0);
+        }
+    };
+
+    auto writer = [&]() {
+        for (int i = 0; i < 100; ++i) {
+            auto [lock, data] = sdata.unique_lock();
+            data += 1;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    };
+
+    std::thread r1(reader), r2(reader), w(writer);
+    r1.join(); r2.join(); w.join();
+
+    auto [lock, final_value] = sdata.shared_lock();
+    EXPECT_EQ(final_value, 100);
+}
+
+TEST(FileDescriptorTest, OpenClose) {
+    int fd = ::open("/dev/null", O_WRONLY);
+    ASSERT_GE(fd, 0);
+
+    file_descriptor f(fd);
+    EXPECT_TRUE(f);
+    EXPECT_EQ(f.get(), fd);
+}
+
+TEST(FileDescriptorTest, MoveSemantics) {
+    int fd = ::open("/dev/null", O_WRONLY);
+    ASSERT_GE(fd, 0);
+
+    file_descriptor f1(fd);
+    file_descriptor f2 = std::move(f1);
+
+    EXPECT_FALSE(f1);
+    EXPECT_TRUE(f2);
+    EXPECT_EQ(f2.get(), fd);
+}
+
+TEST(FileDescriptorTest, Duplicate) {
+    int fd = ::open("/dev/null", O_WRONLY);
+    ASSERT_GE(fd, 0);
+
+    file_descriptor f(fd);
+    file_descriptor dup = f.duplicate();
+
+    EXPECT_TRUE(dup);
+    EXPECT_NE(dup.get(), f.get());
+    EXPECT_EQ(::write(dup.get(), "a", 1), 1);
+}
+
+TEST(FileDescriptorTest, Release) {
+    int fd = ::open("/dev/null", O_WRONLY);
+    ASSERT_GE(fd, 0);
+
+    file_descriptor f(fd);
+    int released_fd = f.release();
+
+    EXPECT_EQ(released_fd, fd);
+    EXPECT_FALSE(f);
+}
+
+TEST(FileDescriptorTest, ReplaceWith) {
+    int fd1 = ::open("/dev/null", O_WRONLY);
+    int fd2 = ::dup(fd1);
+    ASSERT_GE(fd1, 0);
+    ASSERT_GE(fd2, 0);
+
+    file_descriptor f(fd1);
+    f.replace_with(fd2);
+
+    EXPECT_FALSE(f);
+
+    EXPECT_EQ(::write(fd2, "a", 1), 1);
+    ::close(fd2);
+}
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

@@ -26,11 +26,11 @@ export namespace eden_virt::machine {
     struct eden_machine {
         cpu_topology topology;
         std::vector<eden_cpu> cpus;
-        std::shared_ptr<mutex_data<hypervisor>> hyper{nullptr};
+        std::unique_ptr<mutex_data<hypervisor>> hyper{};
         eden_machine() {
             LOG(info) << get_type_name<hypervisor>();
             LOG(trace) << "eden_machine default contribute";
-            hyper = std::make_shared<mutex_data<hypervisor>>();
+            hyper = std::make_unique<mutex_data<hypervisor>>();
             auto [lock,hypervisor_] = hyper->lock();
             if (auto cpu = hypervisor_.create_hypervisor_cpu(0);cpu) {
                 cpus.push_back(eden_cpu{0,std::move(cpu.value())});

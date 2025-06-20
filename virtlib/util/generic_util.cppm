@@ -2,6 +2,7 @@
 // Created by aoikajitsu on 25-6-13.
 //
 module;
+#include <atomic>
 #include <mutex>
 #include <system_error>
 #include <unistd.h>
@@ -10,9 +11,34 @@ module;
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <shared_mutex>
+#include <tuple>
+#include <utility>
+#include <initializer_list>
 export module util;
 
 export namespace eden_virt::util {
+    template<typename Container, typename Key, typename KeyFn>
+    std::optional<size_t> binary_search_by_key(const Container &container, const Key &search_key, KeyFn key_fn) {
+        size_t left = 0;
+        size_t right = container.size();
+
+        while (left < right) {
+            size_t mid = left + (right - left) / 2;
+            auto mid_key = key_fn(container[mid]);
+
+            if (mid_key < search_key) {
+                left = mid + 1;
+            } else if (mid_key > search_key) {
+                right = mid;
+            } else {
+                return mid; // found
+            }
+        }
+
+        return std::nullopt; // not found
+    }
+
     enum class log_level {
         trace, debug, info, warn, error, fatal
     };
@@ -112,6 +138,38 @@ export namespace eden_virt::util {
         }
     };
 
+    template<typename T>
+    struct shared_mutex_data {
+        T data;
+        mutable std::shared_mutex mtx;
+
+        shared_mutex_data() = default;
+
+        template<typename U>
+            requires std::is_constructible_v<T, std::initializer_list<U> >
+        shared_mutex_data(std::initializer_list<U> il) : data(il) {
+        }
+
+        template<typename... Args>
+            requires std::is_constructible_v<T, Args...>
+        explicit shared_mutex_data(Args &&... args)
+            : data(std::forward<Args>(args)...) {
+        }
+
+        shared_mutex_data(const shared_mutex_data &) = delete;
+
+        shared_mutex_data(shared_mutex_data &&) noexcept = delete;
+
+
+        auto unique_lock() -> std::tuple<std::unique_lock<std::shared_mutex>, T &> {
+            return {std::unique_lock(mtx), data};
+        }
+
+        auto shared_lock() const -> std::tuple<std::shared_lock<std::shared_mutex>, const T &> {
+            return {std::shared_lock(mtx), data};
+        }
+    };
+
 
     template<typename T>
     using eden_result = std::expected<T, std::error_code>;
@@ -122,7 +180,8 @@ export namespace eden_virt::util {
 
         file_descriptor() noexcept = delete;
 
-        file_descriptor(int fd) noexcept : fd_(fd) {}
+        explicit file_descriptor(int fd) noexcept : fd_(fd) {
+        }
 
         file_descriptor(const file_descriptor &) = delete;
 
@@ -213,6 +272,7 @@ export namespace eden_virt::util {
 }
 
 namespace std {
-    template <>
-    struct is_error_code_enum<eden_virt::util::eden_error> : true_type {};
+    template<>
+    struct is_error_code_enum<eden_virt::util::eden_error> : true_type {
+    };
 }

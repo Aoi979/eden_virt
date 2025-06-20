@@ -40,7 +40,7 @@ int main() {
     ioctl(vcpu, KVM_SET_SREGS, &sregs);
 
     // Set up regs
-    struct kvm_regs regs = {
+    kvm_regs regs = {
         .rip = 0x1000,
         .rax = 0,
         .rbx = 0,
